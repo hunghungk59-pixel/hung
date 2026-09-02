@@ -1,0 +1,130 @@
+-- LocalScript: Menu ESP "Hưng đẹp trai"
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local espEnabled = false
+local highlights = {}
+
+-- 1. Hàm bật/tắt Highlight ESP
+local function setEspState(state)
+    espEnabled = state
+    
+    local function applyESP(player)
+        if player == LocalPlayer then return end
+        
+        local function setup(character)
+            if not character then return end
+            local existing = character:FindFirstChild("ESP_Highlight")
+            
+            if espEnabled then
+                if not existing then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESP_Highlight"
+                    highlight.Adornee = character
+                    highlight.FillTransparency = 1
+                    highlight.OutlineColor = Color3.fromRGB(0, 255, 0) -- Màu xanh lá
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = character
+                end
+            else
+                if existing then existing:Destroy() end
+            end
+        end
+
+        if player.Character then setup(player.Character) end
+        player.CharacterAdded:Connect(setup)
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        applyESP(player)
+    end
+end
+
+-- Tự động áp dụng cho người chơi mới vào phòng
+Players.PlayerAdded:Connect(function(player)
+    if espEnabled then
+        player.CharacterAdded:Connect(function(character)
+            task.wait(0.5)
+            if espEnabled and character then
+                local highlight = Instance.new("Highlight")
+                highlight.Name = "ESP_Highlight"
+                highlight.Adornee = character
+                highlight.FillTransparency = 1
+                highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+                highlight.OutlineTransparency = 0
+                highlight.Parent = character
+            end
+        end)
+    end
+end)
+
+-- 2. Khởi tạo Giao diện Menu GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HungDepTraiMenu"
+screenGui.ResetOnSpawn = false
+
+-- Đưa Gui vào CoreGui (nếu dùng Executor) hoặc PlayerGui (nếu trong Roblox Studio)
+local success, _ = pcall(function() screenGui.Parent = CoreGui end)
+if not success then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Khung Menu chính
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 130)
+mainFrame.Position = UDim2.new(0.5, -110, 0.4, -65)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true -- Cho phép kéo di chuyển menu
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Tiêu đề "Hưng đẹp trai"
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+titleLabel.Text = "Hưng đẹp trai"
+titleLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleLabel
+
+-- Nút Bật/Tắt ESP
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleESP"
+toggleBtn.Size = UDim2.new(0.85, 0, 0, 40)
+toggleBtn.Position = UDim2.new(0.075, 0, 0.45, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+toggleBtn.Text = "ESP Box: OFF"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.Parent = mainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = toggleBtn
+
+-- Xử lý sự kiện bấm nút
+toggleBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    if espEnabled then
+        toggleBtn.Text = "ESP Box: ON"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+        setEspState(true)
+    else
+        toggleBtn.Text = "ESP Box: OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        setEspState(false)
+    end
+end)
+
