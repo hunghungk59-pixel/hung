@@ -1,0 +1,194 @@
+-- FULL ESP & AIMBOT SCRIPT WITH UI MENU
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Cấu hình mặc định (Settings)
+local Settings = {
+    ESP_Enabled = true,
+    ESP_Boxes = true,
+    ESP_Names = true,
+    Aimbot_Enabled = true,
+    Aimbot_Key = Enum.UserInputType.MouseButton2, -- Giữ chuột phải để ngắm
+    Aimbot_Smoothness = 0.2, -- Độ mượt (0.1 -> 1)
+    FOV_Radius = 120, -- Bán kính vòng ngắm
+    FOV_Visible = true
+}
+
+-- Tạo FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1.5
+FOVCircle.Color = Color3.fromRGB(0, 255, 140)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+
+-- Bảng quản lý ESP
+local ESPObjects = {}
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    local box = Drawing.new("Square")
+    box.Thickness = 1.5
+    box.Color = Color3.fromRGB(255, 50, 50)
+    box.Filled = false
+
+    local name = Drawing.new("Text")
+    name.Size = 14
+    name.Color = Color3.fromRGB(255, 255, 255)
+    name.Center = true
+    name.Outline = true
+
+    ESPObjects[player] = {Box = box, Name = name}
+
+    local function update()
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if not player.Parent or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+                box.Visible = false
+                name.Visible = false
+                if not player.Parent then
+                    box:Remove()
+                    name:Remove()
+                    ESPObjects[player] = nil
+                    connection:Disconnect()
+                end
+                return
+            end
+
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+            if onScreen and Settings.ESP_Enabled then
+                local head = player.Character:FindFirstChild("Head")
+                local headPos = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0)) or pos
+
+                local height = math.abs(pos.Y - headPos.Y) * 2.5
+                local width = height / 1.5
+
+                -- ESP Box
+                if Settings.ESP_Boxes then
+                    box.Size = Vector2.new(width, height)
+                    box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                    box.Visible = true
+                else
+                    box.Visible = false
+                end
+
+                -- ESP Name & Health
+                if Settings.ESP_Names then
+                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                    local health = hum and math.floor(hum.Health) or 100
+                    name.Text = player.Name .. " [" .. health .. " HP]"
+                    name.Position = Vector2.new(pos.X, pos.Y - height / 2 - 16)
+                    name.Visible = true
+                else
+                    name.Visible = false
+                end
+            else
+                box.Visible = false
+                name.Visible = false
+            end
+        end)
+    end
+    coroutine.wrap(update)()
+end
+
+-- Khởi tạo ESP cho Server
+for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
+Players.PlayerAdded:Connect(createESP)
+
+-- Lấy mục tiêu gần tâm chuột nhất cho Aimbot
+local function getClosestPlayer()
+    local closest, shortestDistance = nil, Settings.FOV_Radius
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if distance < shortestDistance then
+                    closest = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Vòng lặp Aimbot & FOV Circle
+local isAiming = false
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Settings.Aimbot_Key then isAiming = true end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.Aimbot_Key then isAiming = false end
+end)
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+    FOVCircle.Radius = Settings.FOV_Radius
+    FOVCircle.Visible = Settings.FOV_Visible and Settings.Aimbot_Enabled
+
+    if isAiming and Settings.Aimbot_Enabled then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local targetPos = Camera:WorldToViewportPoint(target.Character.Head.Position)
+            local mousePos = Vector2.new(Mouse.X, Mouse.Y + 36)
+            local aimPos = Vector2.new(targetPos.X, targetPos.Y)
+            
+            -- Di chuyển tâm ngắm mượt mà (Smoothing)
+            local newPos = mousePos:Lerp(aimPos, Settings.Aimbot_Smoothness)
+            mousemoverel(newPos.X - mousePos.X, newPos.Y - mousePos.Y)
+        end
+    end
+end)
+
+-- Tạo Menu UI Đơn Giản (Bật/Tắt bằng phím RightShift)
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 200, 0, 180)
+Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Active = true
+Frame.Draggable = true
+
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "MENU HACK [RightShift]"
+Title.TextColor3 = Color3.fromRGB(0, 255, 140)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+
+local function createButton(text, pos, callback)
+    local btn = Instance.new("TextButton", Frame)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
+end
+
+createButton("ESP: BẬT", UDim2.new(0.05, 0, 0.25, 0), function(btn)
+    Settings.ESP_Enabled = not Settings.ESP_Enabled
+    btn.Text = Settings.ESP_Enabled and "ESP: BẬT" or "ESP: TẮT"
+end)
+
+createButton("AIMBOT: BẬT", UDim2.new(0.05, 0, 0.48, 0), function(btn)
+    Settings.Aimbot_Enabled = not Settings.Aimbot_Enabled
+    btn.Text = Settings.Aimbot_Enabled and "AIMBOT: BẬT" or "AIMBOT: TẮT"
+end)
+
+createButton("FOV CIRCLE: BẬT", UDim2.new(0.05, 0, 0.71, 0), function(btn)
+    Settings.FOV_Visible = not Settings.FOV_Visible
+    btn.Text = Settings.FOV_Visible and "FOV CIRCLE: BẬT" or "FOV CIRCLE: TẮT"
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        Frame.Visible = not Frame.Visible
+    end
+end)
